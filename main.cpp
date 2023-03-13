@@ -1,6 +1,7 @@
 #define _CRT_SECURE_NO_WARNINGS
 
 #include <stdio.h>
+#include <time.h>
 #include <graphics.h> //图形库
 #include "tools.h"
 /**
@@ -9,7 +10,9 @@
 * 3. 实现游戏顶部的工具栏
 * 4. 实现工具栏中的卡牌
 * 5. 实现种植植物
-* 5. 实现植物动态
+* 6. 实现植物动态
+* 7. 实现启动菜单
+* 8. 实现随机阳光
 */
 
 #define WIN_WIDTH 900
@@ -32,6 +35,18 @@ struct UnitFrame
 };
 
 struct UnitFrame map[3][9];
+
+typedef struct SunshineBall
+{
+    int x, y;// 阳光的飘落过程中的坐标位置(x坐标不变)
+    int frameIndex;// 当前显示的图片帧的序号
+    int destY;//飘落的目标位置的y坐标
+    bool used;// 是否在使用
+    int timer; // 阳光生命周期
+}SunshineBall ;
+
+SunshineBall Balls[10];// 阳光球池
+IMAGE imgSunshineBall[29];
 
 bool fileExist(const char* name) {
     FILE* fp = fopen(name, "r");
@@ -73,6 +88,15 @@ void gameInit() {
 
     curUnit = 0;//
 
+    //创建阳光池
+    memset(Balls, 0, sizeof(Balls));
+    for (int i = 0; i < 29; i++) {
+        sprintf_s(name, sizeof(name), "res/sunshine/%d.png", i + 1);
+        loadimage(&imgSunshineBall[i], name);
+    }
+    //配置随机种子
+    srand(time(NULL));
+
     // 创建游戏窗口
     initgraph(WIN_WIDTH, WIN_HEIGHT, 1);//第三个参数为1 可以打开控制台 进行调试
 }
@@ -107,6 +131,14 @@ void updateWindow() {
     if (curUnit > 0) {
         IMAGE* curUnitImgP = imgUnit[curUnit - 1][0];
         putimagePNG(curX - curUnitImgP->getwidth() / 2, curY - curUnitImgP->getheight() / 2, curUnitImgP);
+    }
+    //渲染阳光
+    int ballMax = sizeof(Balls) / sizeof(Balls[0]);
+    for (int i = 0; i < ballMax; i++) {
+        if (Balls[i].used) {
+            IMAGE* img = &imgSunshineBall[Balls[i].frameIndex];
+            putimagePNG(Balls[i].x, Balls[i].y, img);
+        }
     }
     EndBatchDraw();// 结束双缓冲
 }
@@ -150,9 +182,51 @@ void userClick() {
     }
 }
 
+void createSunshine() {
+
+    static int sunsineSum = 0;// 阳光计数器
+    static int frequent = 40;// 阳光频率 
+
+    sunsineSum++;
+    if (sunsineSum >= frequent) {
+        frequent = 200 + rand() % 200;
+        sunsineSum = 0;
+        // 从阳光池中取一个可用的
+        int ballMax = sizeof(Balls) / sizeof(Balls[0]);
+        int i = 0;
+        for (i = 0; i < ballMax && Balls[i].used; i++);//空for循环 找到一个符合条件的i
+        if (i >= ballMax)return;
+        // 找到
+        Balls[i].used = true;//设为在使用
+        Balls[i].frameIndex = 0;
+        Balls[i].x = 260 + rand() % (900 - 260); //260->900
+        Balls[i].y = 60;
+        Balls[i].destY = 200 + (rand() % 4) * 90;
+        Balls[i].timer = 0;
+    }
+}
+
+void updateSunshine() {
+    int ballsMax = sizeof(Balls) / sizeof(Balls[0]);
+    for (int i = 0; i < ballsMax; i++) {
+        if (Balls[i].used) {
+            Balls[i].frameIndex = (Balls[i].frameIndex + 1) % 29;
+            if (Balls[i].timer == 0) {
+                Balls[i].y += 2;
+            }
+            if (Balls[i].y >= Balls[i].destY) {
+                Balls[i].timer++;
+                if (Balls[i].timer > 100) {
+                    Balls[i].used = false;
+                }
+            }
+        }
+    }
+}
+
+// 修改动态帧
 void updateGame() {
-    for (int i = 0; i < 3; i++)
-    {
+    for (int i = 0; i < 3; i++){
         for (int j = 0; j < 9; j++) {
             if (map[i][j].type > 0) {
                 map[i][j].frameIndex++;
@@ -164,6 +238,9 @@ void updateGame() {
             }
         }
     }
+
+    createSunshine();// 创建阳光
+    updateSunshine();// 更新阳光动态帧
 }
 
 // 制作启动菜单
