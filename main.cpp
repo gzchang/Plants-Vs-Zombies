@@ -166,8 +166,34 @@ void updateGame() {
     }
 }
 
+// 制作启动菜单
+void startUI() {
+    IMAGE imgBg, imgMenu1, imgMenu2;
+    loadimage(&imgBg, "res/menu.png");
+    loadimage(&imgMenu1, "res/menu1.png");
+    loadimage(&imgMenu2, "res/menu2.png");
+    int flag = 0;//是否选中菜单
+    while (1) {
+        BeginBatchDraw();
+        putimage(0, 0, &imgBg);
+        putimagePNG(474, 75, flag ? &imgMenu2 : &imgMenu1);
+        ExMessage msg;
+        if (peekmessage(&msg)) {
+            if (msg.message == WM_LBUTTONDOWN && msg.x >474 && msg.x <474+331 && msg.y>75 && msg.y<75+140) {
+                flag = 1;
+            }
+            else if (msg.message == WM_LBUTTONUP && flag == 1) {
+                return;
+            }
+        }
+        EndBatchDraw();
+
+    }
+}
+
 int main(void){
     gameInit();
+    startUI();
     int timer = 0;// 计时器
     bool flag = true;
 
